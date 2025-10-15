@@ -6,6 +6,8 @@ from sklearn import metrics
 from sklearn.metrics import r2_score
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Conv1D, MaxPooling1D
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras.losses import Huber
 from vmdpy import VMD
 import os
 
@@ -66,14 +68,20 @@ def dataset(data, win_size=WINDOW_SIZE):
     return X, Y
 
 
-def create_cnn_lstm_model(input_shape, model_type='simple'):
-    """根据文章内容创建不同架构的 CNN-LSTM 模型。"""
+def create_cnn_lstm_model(input_shape, model_type='simple', use_pooling=True):
+    """
+    创建 CNN-LSTM 模型。
+    参数:
+      - input_shape: (win, channels)
+      - model_type: 'simple' 或 'deep'
+      - use_pooling: 是否在 Conv 后使用 MaxPooling（高频 IMF 建议禁用）
+    """
     model = Sequential()
 
-    # 第一部分：Conv1D 和 MaxPooling1D
-    # 这里使用 Sequential 并在第一层传入 input_shape 是可行的，但确保 input_shape 正确
+    # 第一部分：Conv1D 和可选的 MaxPooling1D
     model.add(Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=input_shape))
-    model.add(MaxPooling1D(pool_size=2))
+    if use_pooling:
+        model.add(MaxPooling1D(pool_size=2))
 
     if model_type == 'deep':  # 深层结构
         model.add(LSTM(256, return_sequences=True))
@@ -85,7 +93,8 @@ def create_cnn_lstm_model(input_shape, model_type='simple'):
         model.add(LSTM(256))
         model.add(Dense(1, activation='linear'))
 
-    model.compile(loss='mse', optimizer='adam')
+    # 使用 Huber 损失提高对异常值/噪声的鲁棒性
+    model.compile(loss=Huber(), optimizer='adam')
     return model
 
 
@@ -220,9 +229,15 @@ if __name__ == '__main__':
     train_x, test_x, train_y, test_y = train_test_split(data_x, data_y, test_size=TEST_SIZE, shuffle=False)
 
     # 模型建立与训练 (simple 结构, epochs=18)
-    cnn_lstm_baseline = create_cnn_lstm_model(input_shape=(train_x.shape[1], train_x.shape[2]), model_type='simple')
+    # baseline 使用 pooling，因为原始序列包含低频成分
+    cnn_lstm_baseline = create_cnn_lstm_model(input_shape=(train_x.shape[1], train_x.shape[2]), model_type='simple', use_pooling=True)
+    # 基线训练回调
+    callbacks_base = [
+        EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True, verbose=0),
+        ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=4, verbose=0, min_lr=1e-6)
+    ]
     history_baseline = cnn_lstm_baseline.fit(
-        train_x, train_y, epochs=18, batch_size=64, validation_split=0.2, shuffle=False, verbose=0
+        train_x, train_y, epochs=18, batch_size=64, validation_split=0.2, shuffle=False, verbose=0, callbacks=callbacks_base
     )
 
     # 绘制训练损失
@@ -283,6 +298,10 @@ if __name__ == '__main__':
     all_imf_future_predictions = []  # 修正：列表初始化
     all_imf_test_predictions = []  # 修正：列表初始化
 
+    # 计算全局 std 用作阈值参考
+    global_std = np.std(raw_data.values)
+    hf_threshold = global_std * 0.35  # 高频阈值（可调）
+
     for i in range(K):
         imf_name = f'imf_{i + 1}'
         imf_data = imf_dataframes[imf_name]['Value']
@@ -307,6 +326,12 @@ if __name__ == '__main__':
             data_x_imf, data_y_imf, test_size=TEST_SIZE, shuffle=False
         )
 
+        # 判断是否为高频 IMF：若 std 很小，相对全局阈值则认为是高频（需保留细节）
+        imf_std = np.std(imf_arr)
+        use_pooling = True
+        if imf_std < hf_threshold:
+            use_pooling = False  # 高频去掉 pooling 以保留振幅细节
+
         # 模型选择与训练
         model_type = 'simple'
         epochs = 18
@@ -316,13 +341,18 @@ if __name__ == '__main__':
 
         cnn_lstm_imf = create_cnn_lstm_model(
             input_shape=(train_x_imf.shape[1], train_x_imf.shape[2]),
-            model_type=model_type
+            model_type=model_type,
+            use_pooling=use_pooling
         )
 
-        # 训练过程
+        # 训练过程（加入 EarlyStopping/ReduceLROnPlateau）
+        callbacks_imf = [
+            EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True, verbose=0),
+            ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=4, verbose=0, min_lr=1e-6)
+        ]
         history_imf = cnn_lstm_imf.fit(
             train_x_imf, train_y_imf, epochs=epochs, batch_size=64,
-            validation_split=0.2, shuffle=False, verbose=0
+            validation_split=0.2, shuffle=False, verbose=0, callbacks=callbacks_imf
         )
 
         # 绘制训练损失
@@ -356,7 +386,7 @@ if __name__ == '__main__':
     print("=" * 60)
 
     # 预测重构 (将所有 IMF 的预测值相加)
-    # 注意：各 IMF 的 future 长度应相同，test_pred 长度应相同
+    # 注意：各 IMF 的 future长度应相同，test_pred 长度应相同
     reconstructed_future_denorm = np.sum(np.array(all_imf_future_predictions), axis=0)
     reconstructed_pred_test_denorm = np.sum(np.array(all_imf_test_predictions), axis=0)
 
