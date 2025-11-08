@@ -14,6 +14,11 @@ import os
 # 设置中文显示和绘图样式
 plt.rcParams['font.sans-serif'] = ['Microsoft YaHei']  # 修正：设置默认的中文字体，例如 'SimHei'
 plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+plt.rcParams['axes.titlesize'] = 20  # 标题字体大小
+plt.rcParams['axes.labelsize'] = 18  # 轴标签字体大小
+plt.rcParams['xtick.labelsize'] = 16  # x轴刻度标签字体大小
+plt.rcParams['ytick.labelsize'] = 16  # y轴刻度标签字体大小
+plt.rcParams['legend.fontsize'] = 16  # 图例字体大小
 
 WINDOW_SIZE = 12  # 时间窗口大小 (Lookback period)
 FUTURE_STEPS = 30  # 未来预测步长
@@ -175,11 +180,11 @@ def evaluate_and_plot(test_y_norm, y_pred_norm, series_future_denorm, arr_min, a
     plt.plot(range(start_index, end_index), series_future_denorm, color='b',
              label=f'{title_prefix} 向后预测 {FUTURE_STEPS} 天')
 
-    plt.title(f'{title_prefix} 实际与预测波动比对图')
+    plt.title(f'{title_prefix} 实际与预测波动比对图', fontsize=20)
     plt.grid(True)
-    plt.xlabel('时间步 (测试集)')
-    plt.ylabel('电力物资需求量(kg) / 幅度')
-    plt.legend()
+    plt.xlabel('时间步 (测试集)', fontsize=18)
+    plt.ylabel('电力物资需求量(kg) / 幅度', fontsize=18)
+    plt.legend(fontsize=16)
     plt.show()
 
     # 返回反归一化后的未来预测值和测试集预测值，用于最终重构
@@ -200,9 +205,9 @@ if __name__ == '__main__':
 
     plt.figure(figsize=(15, 5))
     plt.plot(raw_data, label='原始数据', color='r', alpha=0.7)
-    plt.title('原始时间序列图')
+    plt.title('原始时间序列图', fontsize=20)
     plt.grid(True)
-    plt.legend()
+    plt.legend(fontsize=16)
     plt.show()
 
     # --- 2. 基线模型：CNN-LSTM (对原始数据直接预测) ---
@@ -244,8 +249,10 @@ if __name__ == '__main__':
     plt.figure(figsize=(10, 5))
     plt.plot(history_baseline.history['loss'])
     plt.plot(history_baseline.history['val_loss'], c='r')
-    plt.title("基线 CNN-LSTM 模型训练历史")
-    plt.legend(['loss', 'val_loss'])
+    plt.title("基线 CNN-LSTM 模型训练历史", fontsize=20)
+    plt.legend(['loss', 'val_loss'], fontsize=16)
+    plt.xlabel('Epochs', fontsize=18)
+    plt.ylabel('Loss', fontsize=18)
     plt.show()
 
     # 预测与评估
@@ -284,8 +291,8 @@ if __name__ == '__main__':
 
         plt.subplot(K, 1, i + 1)
         plt.plot(u[i, :])
-        plt.title(f'IMF {i + 1} (K={K})')
-        plt.ylabel('幅度')
+        plt.title(f'IMF {i + 1} (K={K})', fontsize=18)
+        plt.ylabel('幅度', fontsize=16)
     plt.tight_layout()
     plt.show()
 
@@ -359,8 +366,10 @@ if __name__ == '__main__':
         plt.figure(figsize=(10, 5))
         plt.plot(history_imf.history['loss'])
         plt.plot(history_imf.history['val_loss'], c='r')
-        plt.title(f"{imf_name} CNN-LSTM 模型训练历史 (Epochs: {epochs})")
-        plt.legend(['loss', 'val_loss'])
+        plt.title(f"{imf_name} CNN-LSTM 模型训练历史 (Epochs: {epochs})", fontsize=20)
+        plt.legend(['loss', 'val_loss'], fontsize=16)
+        plt.xlabel('Epochs', fontsize=18)
+        plt.ylabel('Loss', fontsize=18)
         plt.show()
 
         # 预测与评估
@@ -386,7 +395,7 @@ if __name__ == '__main__':
     print("=" * 60)
 
     # 预测重构 (将所有 IMF 的预测值相加)
-    # 注意：各 IMF 的 future长度应相同，test_pred 长度应相同
+    # 注意：各 IMF 的 future 长度应相同，test_pred 长度应相同
     reconstructed_future_denorm = np.sum(np.array(all_imf_future_predictions), axis=0)
     reconstructed_pred_test_denorm = np.sum(np.array(all_imf_test_predictions), axis=0)
 
@@ -418,9 +427,9 @@ if __name__ == '__main__':
     plt.plot(range(start_index, end_index), reconstructed_future_denorm, color='b',
              label=f'VMD-CNN-LSTM 向后预测 {FUTURE_STEPS} 天')
 
-    plt.title('VMD-CNN-LSTM 集成预测结果与实际值比对')
+    plt.title('VMD-CNN-LSTM 集成预测结果与实际值比对', fontsize=20)
     plt.grid(True)
-    plt.xlabel('时间步 (测试集)')
-    plt.ylabel('电力物资需求量(kg)')
-    plt.legend()
+    plt.xlabel('时间步 (测试集)', fontsize=18)
+    plt.ylabel('电力物资需求量(kg)', fontsize=18)
+    plt.legend(fontsize=16)
     plt.show()
