@@ -178,7 +178,7 @@ def evaluate_and_plot(test_y_norm, y_pred_norm, series_future_denorm, arr_min, a
     plt.title(f'{title_prefix} 实际与预测波动比对图')
     plt.grid(True)
     plt.xlabel('时间步 (测试集)')
-    plt.ylabel('总有功功率 (kw) / 幅度')
+    plt.ylabel('电力物资需求量(kg) / 幅度')
     plt.legend()
     plt.show()
 
@@ -421,6 +421,6 @@ if __name__ == '__main__':
     plt.title('VMD-CNN-LSTM 集成预测结果与实际值比对')
     plt.grid(True)
     plt.xlabel('时间步 (测试集)')
-    plt.ylabel('总有功功率 (kw)')
+    plt.ylabel('电力物资需求量(kg)')
     plt.legend()
     plt.show()
