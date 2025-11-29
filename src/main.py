@@ -24,6 +24,11 @@ WINDOW_SIZE = 12  # 时间窗口大小 (Lookback period)
 FUTURE_STEPS = 30  # 未来预测步长
 TEST_SIZE = 0.2
 
+# 创建target文件夹用于保存图像
+TARGET_DIR = 'target'
+if not os.path.exists(TARGET_DIR):
+    os.makedirs(TARGET_DIR)
+
 
 # --- 1. 数据生成（模拟文章中的 '数据.xlsx' 文件） ---
 def generate_synthetic_data(file_name='数据.xlsx'):
@@ -199,8 +204,11 @@ def evaluate_and_plot(test_y_norm, y_pred_norm, series_future_denorm, arr_min, a
     plt.title(f'{title_prefix} 实际与预测波动比对图', fontsize=20)
     plt.grid(True)
     plt.xlabel('时间步 (测试集)', fontsize=18)
-    plt.ylabel('电力物资需求量(kg) / 幅度', fontsize=18)
+    plt.ylabel('幅度', fontsize=18)
     plt.legend(fontsize=16)
+    # 保存图像
+    filename = f'{title_prefix}_实际与预测波动比对图.png'
+    plt.savefig(os.path.join(TARGET_DIR, filename), dpi=300, bbox_inches='tight')
     plt.show()
 
     # 返回反归一化后的未来预测值和测试集预测值，用于最终重构
@@ -224,6 +232,8 @@ if __name__ == '__main__':
     plt.title('原始时间序列图', fontsize=20)
     plt.grid(True)
     plt.legend(fontsize=16)
+    # 保存图像
+    plt.savefig(os.path.join(TARGET_DIR, '原始时间序列图.png'), dpi=300, bbox_inches='tight')
     plt.show()
 
     # --- 2. 基线模型：CNN-LSTM (对原始数据直接预测) ---
@@ -269,6 +279,8 @@ if __name__ == '__main__':
     plt.legend(['loss', 'val_loss'], fontsize=16)
     plt.xlabel('Epochs', fontsize=18)
     plt.ylabel('Loss', fontsize=18)
+    # 保存图像
+    plt.savefig(os.path.join(TARGET_DIR, '基线_CNN-LSTM_模型训练历史.png'), dpi=300, bbox_inches='tight')
     plt.show()
 
     # 预测与评估
@@ -310,6 +322,7 @@ if __name__ == '__main__':
         plt.title(f'IMF {i + 1} (K={K})', fontsize=18)
         plt.ylabel('幅度', fontsize=16)
     plt.tight_layout()
+    plt.savefig(os.path.join(TARGET_DIR, 'VMD分解后的K个IMF.png'), dpi=300, bbox_inches='tight')
     plt.show()
 
     # 识别趋势IMF（残差项）
@@ -389,8 +402,10 @@ if __name__ == '__main__':
             plt.ylabel('幅度', fontsize=18)
             plt.ylim(res_min - margin, res_max + margin)  # 根据数据的实际范围设置y轴
             plt.legend(fontsize=16)
+            # 保存图像
+            plt.savefig(os.path.join(TARGET_DIR, f'{imf_name}_实际与预测波动比对图_基于影响因子.png'), dpi=300, bbox_inches='tight')
             plt.show()
-            
+
             # 保存结果
             all_imf_future_predictions.append(summed_future_predictions)
             all_imf_test_predictions.append(summed_predictions)
@@ -456,6 +471,8 @@ if __name__ == '__main__':
         plt.legend(['loss', 'val_loss'], fontsize=16)
         plt.xlabel('Epochs', fontsize=18)
         plt.ylabel('Loss', fontsize=18)
+        # 保存图像
+        plt.savefig(os.path.join(TARGET_DIR, f'{imf_name}_CNN-LSTM_模型训练历史.png'), dpi=300, bbox_inches='tight')
         plt.show()
 
         # 预测与评估
@@ -534,4 +551,6 @@ if __name__ == '__main__':
     plt.xlabel('时间步 (测试集)', fontsize=18)
     plt.ylabel('电力物资需求量(kg)', fontsize=18)
     plt.legend(fontsize=16)
+    # 保存图像
+    plt.savefig(os.path.join(TARGET_DIR, 'VMD-CNN-LSTM_集成预测结果与实际值比对.png'), dpi=300, bbox_inches='tight')
     plt.show()

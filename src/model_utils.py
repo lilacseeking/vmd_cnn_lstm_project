@@ -9,6 +9,12 @@ from tensorflow.keras.layers import Conv1D, MaxPooling1D, LSTM, Dense
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import matplotlib.pyplot as plt
 import lightgbm as lgb
+import os
+
+# 创建target文件夹用于保存图像
+TARGET_DIR = 'target'
+if not os.path.exists(TARGET_DIR):
+    os.makedirs(TARGET_DIR)
 
 def normalize_series(arr):
     arr = np.array(arr).astype(float)
@@ -88,6 +94,8 @@ def analyze_residual(residual_imf, imf_index, signal_length):
     plt.xlabel('时间点')
     plt.ylabel('幅值')
     plt.grid(True)
+    # 保存图像
+    plt.savefig(os.path.join(TARGET_DIR, f'IMF{imf_index+1}_残差项.png'), dpi=300, bbox_inches='tight')
     plt.show()
     
     return {
@@ -153,13 +161,9 @@ def compute_residual_operations(residual_imf):
         axes[1,1].set_title('残差项移动平均')
     
     plt.tight_layout()
+    # 保存图像
+    plt.savefig(os.path.join(TARGET_DIR, f'IMF{imf_index+1}_残差项数值计算.png'), dpi=300, bbox_inches='tight')
     plt.show()
-    
-    return {
-        'diff': diff_residual,
-        'cumsum': cumsum_residual,
-        'moving_avg': moving_avg if window_size > 0 else None
-    }
 
 # 新增：识别趋势IMF（残差项）
 def identify_trend_imf(imfs, raw_data):
@@ -281,6 +285,8 @@ def predict_with_influencing_factors(factors, window_size=12, test_size=0.2, cre
         plt.xlabel('时间步 (测试集)', fontsize=18)
         plt.ylabel('数值', fontsize=18)
         plt.legend(fontsize=16)
+        # 保存图像
+        plt.savefig(os.path.join(TARGET_DIR, f'{factor_name}_预测值.png'), dpi=300, bbox_inches='tight')
         plt.show()
     
     return factor_predictions, factor_test_values, factor_future_predictions
