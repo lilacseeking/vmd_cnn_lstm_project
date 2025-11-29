@@ -187,7 +187,7 @@ if __name__ == '__main__':
     else:
         df = pd.read_excel(data_file, index_col=0, parse_dates=True)
 
-    raw_data = df['总有功功率（kw）']
+    raw_data = df['需求量(个)']
 
     plt.figure(figsize=(15, 5))
     plt.plot(raw_data, label='原始数据', color='r', alpha=0.7)
