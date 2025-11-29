@@ -232,6 +232,9 @@ if __name__ == '__main__':
     plt.title('原始时间序列图', fontsize=20)
     plt.grid(True)
     plt.legend(fontsize=16)
+    # 添加横坐标和纵坐标的单位
+    plt.xlabel('时间', fontsize=18)
+    plt.ylabel('电力物资需求量(kg)', fontsize=18)
     # 保存图像
     plt.savefig(os.path.join(TARGET_DIR, '原始时间序列图.png'), dpi=300, bbox_inches='tight')
     plt.show()
