@@ -29,7 +29,7 @@ TEST_SIZE = 0.2
 def generate_synthetic_data(file_name='数据.xlsx'):
     """生成模拟的每日功率波动数据并保存为 Excel 文件。"""
     np.random.seed(42)
-    days = 500
+    days = 2000
     dates = pd.date_range(start='2023-01-01', periods=days, freq='D')
 
     # 长期趋势
@@ -47,6 +47,22 @@ def generate_synthetic_data(file_name='数据.xlsx'):
     df = pd.DataFrame({
         '数据时间': dates,
         '需求量(个)': power_data
+
+        # '电力工程投资':0.163 * power_data,
+        # '电力设备购置投资':0.158 * power_data,
+        # '原材料成本':0.15 * power_data,
+        # '极端气温事件':0.138 * power_data,
+        # '暴雨洪涝灾害':0.135 * power_data,
+        # '人工成本':0.131 * power_data,
+        # '干旱灾害':0.125 * power_data
+        # '需求量(个)(归一化)': power_data,
+        # '电力工程投资(归一化)': 0.85 * power_data,
+        # '电力设备购置投资(归一化)': 0.82 * power_data,
+        # '原材料成本(归一化)': 0.78 * power_data,
+        # '极端气温事件(归一化)': 0.72 * power_data,
+        # '暴雨洪涝灾害(归一化)': 0.70 * power_data,
+        # '人工成本(归一化)': 0.68 * power_data,
+        # '干旱灾害': 0.65 * power_data,
     })
 
     df.set_index('数据时间', inplace=True)
