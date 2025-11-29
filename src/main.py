@@ -312,6 +312,10 @@ if __name__ == '__main__':
     plt.tight_layout()
     plt.show()
 
+    # 识别趋势IMF（残差项）
+    from model_utils import identify_trend_imf
+    trend_imf_index = identify_trend_imf(u, raw_data.values)
+    
     # --- 4. VMD-CNN-LSTM (对每个 IMF 进行预测) ---
     print("\n" + "=" * 60)
     print("--- 4. VMD-CNN-LSTM (对每个 IMF 进行预测) ---")
@@ -320,6 +324,7 @@ if __name__ == '__main__':
     # 初始化收集容器
     all_imf_future_predictions = []  # 修正：列表初始化
     all_imf_test_predictions = []  # 修正：列表初始化
+    all_imf_predictions_dict = {}  # 用于LightGBM集成的预测结果
 
     # 计算全局 std 用作阈值参考
     global_std = np.std(raw_data.values)
@@ -330,6 +335,71 @@ if __name__ == '__main__':
         imf_data = imf_dataframes[imf_name]['Value']
         print(f"\n--- 开始处理 {imf_name} ---")
 
+        # 如果是趋势IMF（残差项），采用特殊的处理方式
+        if i == trend_imf_index:
+            print(f"将 {imf_name} 作为残差项进行特殊处理...")
+            
+            # 生成7个影响因子
+            from model_utils import generate_influencing_factors, predict_with_influencing_factors
+            factors = generate_influencing_factors(raw_data.values)
+            
+            # 使用影响因子分别进行预测
+            factor_predictions, factor_test_values, factor_future_predictions = predict_with_influencing_factors(
+                factors, 
+                WINDOW_SIZE, 
+                TEST_SIZE, 
+                create_cnn_lstm_model, 
+                dataset,
+                FUTURE_STEPS
+            )
+            
+            # 将7个影响因子的预测结果求和作为残差项的预测结果
+            summed_predictions = np.sum(list(factor_predictions.values()), axis=0)
+            summed_test_values = np.sum(list(factor_test_values.values()), axis=0)
+            summed_future_predictions = np.sum(list(factor_future_predictions.values()), axis=0)
+            
+            # 获取测试集的实际值（用于绘图）
+            # 因为我们是对各个影响因子分别预测然后求和，所以需要获取一个影响因子的测试集真实值作为基准
+            base_test_values = list(factor_test_values.values())[0] 
+            
+            # 计算残差项预测结果的范围，用于绘图
+            all_values = np.concatenate([summed_test_values, summed_predictions, summed_future_predictions])
+            res_min = np.min(all_values)
+            res_max = np.max(all_values)
+            margin = (res_max - res_min) * 0.1  # 添加10%的边距
+            
+            # 绘制残差项的最终预测结果（与实际值对比，包含未来预测）
+            plt.figure(figsize=(15, 6), dpi=100)
+            
+            # 实际值 (测试集)
+            plt.plot(summed_test_values, color='c', label=f'{imf_name} 实际波动曲线')
+            
+            # 预测值 (测试集)
+            plt.plot(summed_predictions, color='r', label=f'{imf_name} 预测波动曲线')
+            
+            # 未来预测值
+            start_index = len(summed_predictions)
+            end_index = start_index + len(summed_future_predictions)
+            plt.plot(range(start_index, end_index), summed_future_predictions, color='b',
+                     label=f'{imf_name} 向后预测 {FUTURE_STEPS} 天')
+            
+            plt.title(f'{imf_name} 实际与预测波动比对图 (基于影响因子)', fontsize=20)
+            plt.grid(True)
+            plt.xlabel('时间步 (测试集)', fontsize=18)
+            plt.ylabel('幅度', fontsize=18)
+            plt.ylim(res_min - margin, res_max + margin)  # 根据数据的实际范围设置y轴
+            plt.legend(fontsize=16)
+            plt.show()
+            
+            # 保存结果
+            all_imf_future_predictions.append(summed_future_predictions)
+            all_imf_test_predictions.append(summed_predictions)
+            all_imf_predictions_dict[imf_name] = summed_predictions
+            
+            print(f"残差项 ({imf_name}) 预测完成")
+            continue
+
+        # 其他IMF的标准处理流程
         # 0-1 标准化 (独立缩放：使用当前 IMF 的最大/最小值)
         imf_arr = np.array(imf_data)
         arr_max_imf = np.max(imf_arr)
@@ -404,10 +474,19 @@ if __name__ == '__main__':
         # 收集反归一化后的未来预测值和测试集预测值
         all_imf_future_predictions.append(series_future_denorm)
         all_imf_test_predictions.append(y_pred_denorm_imf)
+        all_imf_predictions_dict[imf_name] = y_pred_denorm_imf
 
-    # --- 5. 最终重构与对比 ---
+    # --- 5. 使用LightGBM进行集成预测 ---
     print("\n" + "=" * 60)
-    print("--- 5. 最终 VMD-CNN-LSTM 重构与对比 ---")
+    print("--- 5. 使用LightGBM进行集成预测 ---")
+    print("=" * 60)
+    
+    from model_utils import ensemble_predict_with_lightgbm
+    lgb_model, lgb_pred, lgb_test = ensemble_predict_with_lightgbm(all_imf_predictions_dict)
+
+    # --- 6. 最终重构与对比 ---
+    print("\n" + "=" * 60)
+    print("--- 6. 最终 VMD-CNN-LSTM 重构与对比 ---")
     print("=" * 60)
 
     # 预测重构 (将所有 IMF 的预测值相加)
@@ -442,6 +521,13 @@ if __name__ == '__main__':
     end_index = start_index + len(reconstructed_future_denorm)
     plt.plot(range(start_index, end_index), reconstructed_future_denorm, color='b',
              label=f'VMD-CNN-LSTM 向后预测 {FUTURE_STEPS} 天')
+
+    # 根据数据的实际范围设置y轴，而不是从0开始
+    all_values = np.concatenate([data_y_denorm, reconstructed_pred_test_denorm, reconstructed_future_denorm])
+    y_min, y_max = np.min(all_values), np.max(all_values)
+    y_range = y_max - y_min
+    margin = y_range * 0.1  # 添加10%的边距
+    plt.ylim(y_min - margin, y_max + margin)
 
     plt.title('VMD-CNN-LSTM 集成预测结果与实际值比对', fontsize=20)
     plt.grid(True)
